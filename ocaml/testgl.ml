@@ -37,10 +37,27 @@ let keyboard ~key ~x ~y =
 let page () =
   GlDraw.color (1., 1., 1.);            (* white bg *)
   GlDraw.rect (-0.99, 0.99) (0.99, -0.99);
-  GlDraw.color (1., 0., 0.);            (* red part*)
-  GlDraw.rect (-0.5, 0.5) (0.5, 0.);
-  GlDraw.color (0., 0., 1.);            (* blue part *)
-  GlDraw.rect (-0.5, 0.) (0.5, -0.5);
+(*   GlDraw.color (1., 0., 0.);            (\* red part*\) *)
+(*   GlDraw.rect (-0.5, 0.5) (0.5, 0.); *)
+(*   GlDraw.color (0., 0., 1.);            (\* blue part *\) *)
+(*   GlDraw.rect (-0.5, 0.) (0.5, -0.5); *)
+
+  let rec loop i =
+   if i >= 6 then ()
+   else begin
+  GlMat.push ();
+  GlDraw.color ( 1. -. (float i /. 10.),  1. -. (float i /. 10.), 1. -. (float i /. 10.));
+  GlMat.rotate3  ((float i) *. 5.) (0., 0., 1.);
+
+  let f = 1.0 -. ((float i) /. 6.0) in
+  GlMat.scale3 (f, f, 1.);
+
+  GlDraw.rect (-0.5, 0.5) (0.5, -0.5);
+
+  GlMat.pop ();
+  loop (1 + i);
+  end
+  in loop 0;
   
   Display
 ;;
@@ -68,7 +85,7 @@ let render_transition dir start =
   (* Old page *)
   GlMat.push ();
   GlMat.translate3 (0., -. 1., 0.);
-  GlMat.scale3 (1. -. completed, 1. -. completed, 1.);
+  GlMat.scale3 (1., 1. -. completed, 1.);
   GlMat.translate3 (0., 1., 0.);
   ignore ( page () );
   GlMat.pop ();
