@@ -1,11 +1,17 @@
 ;;; -*- Mode: Lisp -*-
 
+;;; Random notes:
+;;; 
+;;; This does not include a "switch to fullscreen" feature, because
+;;; your window manager should be capable of doing this.
+;;; 
+;;; Use space and backspace to switch slides.
+
 (defpackage :blitz.x11.pres
   (:use :common-lisp :xlib))
 (in-package :blitz.x11.pres)
 
 (defvar *display* nil)
-
 
 (defun reshape (width height)
   (let ((aspect-ratio (/ (coerce width 'double-float)
@@ -66,14 +72,30 @@
                0s0 0s0 1s0)
   (case *mode*
     (:display (render-page))
-    (:move 
-     (let ((frac (mod (/ (coerce (incf *move-fps*) 'single-float)
-                         (coerce *move-frames* 'single-float)) 1s0)))
-       (gl:translate-f  (* 2s0 frac) 0s0 0s0)
+    ((:move-fwd :move-bkwd) 
+     (let ((frac (/ (coerce (incf *move-fps*) 'single-float)
+                    (coerce *move-frames* 'single-float))))
+       (when (eq *mode* :move-bkwd)
+         ;; Reverse animation
+         (setq frac (- 1s0 frac)))
+       ;; New page coming from above
+       (gl:push-matrix)
+       (gl:translate-f (- frac 1s0) 0s0 0s0) ; slightly from left
+       (gl:translate-f 0s0 1s0 0s0)     ; from above
+       (gl:scale-f 1s0 frac 1s0)        ; zoom effect
+       (gl:translate-f 0s0 -1s0 0s0)    ; fix translation
        (render-page)
+       (gl:pop-matrix)
+
+       ;; Old page
+       (gl:push-matrix)
+       (gl:translate-f 0s0 -1s0 0s0)
+       (gl:scale-f (- 1s0 (/ frac 1s0)) (- 1s0 frac) 1s0)
+       (gl:translate-f 0s0 1s0 0s0)
+       (render-page)
+       (gl:pop-matrix)
        (when (>= *move-fps* *move-frames*)
          (setq *mode* :display)))))
-
   (glx:swap-buffers)
   )
 
@@ -111,18 +133,23 @@
            (loop
               (let ((done? nil))
                 (event-case (*display* :timeout (if (eq *mode* :display) 
-                                                    1
-                                                    (/ 60))
+                                                    20
+                                                    0)
                                        :force-output-p t)
                             (configure-notify (width height)
-                                               (setf win-width width
-                                                     win-height height)
-                                               (reshape width height)
-                                               t)
-                            (key-press ()
-                                       (setq 
-                                        *move-fps* 0
-                                        *mode* :move)
+                                              (setf win-width width
+                                                    win-height height)
+                                              (reshape width height)
+                                              t)
+                            (key-press (code state)
+                                       ;; XXX Use keysyms instead.
+                                       (when (or (= code 22) ; backspace
+                                                 (= code 65)) ; space
+                                         (setq 
+                                          *move-fps* 0
+                                          *mode* (if (= code 22) 
+                                                     :move-bkwd
+                                                     :move-fwd)))
                                        t)
                             (button-press ()
                                           (setq done? t)
